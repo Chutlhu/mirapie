@@ -7,11 +7,11 @@ Example:
 
 Using the toydata:
 
-    $./mirapie  toydata/ toydata/initL.csv -p 1 -m 1
+    $./mirapie.py  toydata/ toydata/initL.csv -p 1 -m 1
 
 Multitrack dataset in `../Dataset/` and the `../Dataset/initL.csv` is the table containig the information about microphone channels and instruments
 
-    $./mirapie    ../Dataset/   ../Dataset/initL.csv
+    $./mirapie.py    ../Dataset/   ../Dataset/initL.csv
 
 ## Installation
 1 Setup the virtual enviroment, run it and intall all the dependencies
