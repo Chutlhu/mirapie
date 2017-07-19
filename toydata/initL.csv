@@ -1,0 +1,7 @@
+Channels,01_Piano,02_Bass,03_Soprano,04_Alto,05_Tenor,06_Baritone
+mix_01_Piano.wav,1,0,0,0,0,0
+mix_02_Bass.wav,0,1,0,0,0,0
+mix_03_Soprano.wav,0,0,1,0,0,0
+mix_04_Alto.wav,0,0,0,1,0,0
+mix_05_Tenor.wav,0,0,0,0,1,0
+mix_06_Baryton.wav,0,0,0,0,0,1

@@ -1,2 +1,2 @@
 # mirapie
-Interference removal algorithm for multitrack live recordings
+Python implementation for MIRA2016
