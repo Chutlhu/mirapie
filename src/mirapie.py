@@ -98,7 +98,4 @@ def command_line_runner():
 
 
 if __name__ == '__main__':
-    if not command_line_runner():
-        sys.exit(0)
-    else:
-        print('C O M P L E T E.')
+    command_line_runner()

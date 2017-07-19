@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 
 from setuptools import setup, find_packages
+from pip.req import parse_requirements
 import mira
 import mirapie
 import os
 
 
-def extra_dependencies():
-    import sys
-    ret = []
-    if sys.version_info < (2, 7):
-        ret.append('argparse')
-    return ret
 
 
 def read(*names):
     values = dict()
-    extensions = ['.txt', '.rst']
+    extensions = ['.txt', '.rst', '.md']
     for name in names:
         value = ''
         for extension in extensions:
@@ -40,38 +35,29 @@ News
 setup(
     name             = 'mirapie',
     version          = mirapie.__version__,
-    description      = 'Instant coding answers via the command line',
+    description      = 'Interference removal algorithm for multitrack live recordings via command line',
     long_description = long_description,
     classifiers      = [
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 4 - Beta"
         "Environment :: Console",
+        "Intended Audience :: Sound Engineers",
         "Intended Audience :: Developers",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.2",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
-        "Topic :: Documentation",
+        "Programming Language :: Python :: 3.5",
+        "Topic :: Music Processing",
+        "License :: OSI Approved :: GPL3 License",
     ],
-    keywords='howdoi help console command line answer',
-    author='Diego Di Carlo',
-    author_email='diego.dicarlo89@gmail.com',
-    maintainer='Diego Di carlo',
-    maintainer_email='diego.dicarlo89@gmail.com',
-    url='https://github.com/gleitz/howdoi',
-    license='MIT',
-    packages=find_packages(),
-    entry_points={
+    keywords         = 'interference reduction mira source separation python',
+    author           = 'Diego Di Carlo',
+    author_email     = 'diego.dicarlo89@gmail.com',
+    maintainer       = 'Diego Di carlo',
+    maintainer_email = 'diego.dicarlo89@gmail.com',
+    url              = 'https://github.com/Chutlhu/mirapie',
+    license          = 'GPL3',
+    packages         = find_packages(),
+    entry_points     = {
         'console_scripts': [
-            'howdoi = howdoi.howdoi:command_line_runner',
+            'mirapie = mirapie:command_line_runner',
         ]
     },
-    install_requires=[
-        'pyquery',
-        'pygments',
-        'requests',
-        'requests-cache'
-    ] + extra_dependencies(),
+    install_requires = parse_requirements('requirements.txt', session='hack'),
 )
