@@ -5,13 +5,13 @@
 
 Example:
 
-Using the toydata:
+Using the provided toydata:
 
     $./mirapie.py  toydata/ toydata/initL.csv -p 1 -m 1
 
-Multitrack dataset in `../Dataset/` and the `../Dataset/initL.csv` is the table containig the information about microphone channels and instruments
+Using a _your_ multitrack dataset, e.g. in `../Dataset/` and the interference matrix in `../Dataset/initL.csv`.
 
-    $./mirapie.py    ../Dataset/   ../Dataset/initL.csv
+    $./mirapie.py    ../Dataset/   ../Dataset/initL.csv -p 1 -m 3
 
 ## Installation
 1 Setup the virtual enviroment, run it and intall all the dependencies
@@ -37,10 +37,10 @@ Multitrack dataset in `../Dataset/` and the `../Dataset/initL.csv` is the table 
                                 select one of the possible preset (default: 1)
         -m MODE, --mode MODE    select one of the possible mode (default: 0)
 ## Command line arguments
-`path-to-wavs` : folder containing the audio recording in [.wav]
-`csv-matrix`   : file containing info about mic channels and instrumens organized in a table [.csv]
-`-p PRESET`    : present number in the user-editable yaml file `preset.yml`
-`-m MODE`      : mode of the algorithm, `1` one chunk, `2` one chunk with random projection, `3` full-length with random projection.
+`path-to-wavs` : folder containing the audio recording in [.wav]  
+`csv-matrix`   : file containing info about mic channels and instrumens organized in a table [.csv]  
+`-p PRESET`    : present number in the user-editable yaml file `preset.yml`  
+`-m MODE`      : mode of the algorithm, `1` one chunk, `2` one chunk with random projection, `3` full-length with random projection.  
 
 __advance algorithm parameters__ in `preset.yml` file
 
