@@ -14,7 +14,7 @@ Using a _your_ multitrack dataset, e.g. in `../Dataset/` and the interference ma
     $./mirapie.py    ../Dataset/   ../Dataset/initL.csv -p 1 -m 3
 
 ## Installation
-1 Setup the virtual enviroment, run it and intall all the dependencies
+1 Setup the virtual enviroment, run it and install all the dependencies
 
     $ virtualenv  venv -p python3
     $ source venv/bin/activate
@@ -45,19 +45,19 @@ Using a _your_ multitrack dataset, e.g. in `../Dataset/` and the interference ma
 __advance algorithm parameters__ in `preset.yml` file
 
 ## Author
-Diego Di Carlo (`@Chutlhu <https://github.com/Chutlhu>`)
+Diego Di Carlo ([Chutlhu](https://github.com/Chutlhu))
 
 ## Notes
 -  Works only with Python3
 -  A standalone Windows executable with the howdoi application _is not yet available_
--  Conference paper about mirapie can be downloaded `@here <https://hal.inria.fr/hal-01515971/file/gaussian-framework-interference.pdf>`
+-  Conference paper about mirapie can be downloaded [here](https://hal.inria.fr/hal-01515971/file/gaussian-framework-interference.pdf)
 -  Special thanks to Antoine Liutkus and Thomas Praetzlich and Multispeech Team at INRIA GRAND EST.
 
 ## Development
-- check the github repo `@mirapieDev <https://github.com/Chutlhu/mirapieDev>`
+- check the github repo [mirapieDev](https://github.com/Chutlhu/mirapieDev)
 
 ## Troubleshooting
-- please write to `diego.dicarlo89@gmail.com` for any question
+- please write to `diego.dicarlo89@gmail.com` for any questions
 
 ## License
 GPL v3
