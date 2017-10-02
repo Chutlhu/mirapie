@@ -513,9 +513,9 @@ class Mira(object):
         for p, pchunk in enumerate(chunk_prjs_pointers):
 
 
-            if p == nchunks-1:
+            if p == nchunks-1 and p > 0:
                 break
-            elif p == nchunks-2:
+            elif p == nchunks-2 or (p == 0 and nchunks == 1):
                 print("    Projecting last chunk...")
                 chunk_prj_len_sec *= 2
             else:
