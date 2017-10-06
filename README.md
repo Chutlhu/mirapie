@@ -48,7 +48,6 @@ Diego Di Carlo ([Chutlhu](https://github.com/Chutlhu))
 
 ## Notes
 -  Works only with Python3
--  A standalone Windows executable with the howdoi application _is not yet available_
 -  Conference paper about mirapie can be downloaded [here](https://hal.inria.fr/hal-01515971/file/gaussian-framework-interference.pdf)
 -  Special thanks to Antoine Liutkus and Thomas Praetzlich and Multispeech Team at INRIA GRAND EST.
 
