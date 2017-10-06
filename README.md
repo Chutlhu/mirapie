@@ -8,9 +8,9 @@ Using the provided toydata:
 
     $./mirapie.py  toydata/ toydata/initL.csv -p 1 -m 1
 
-Using a _your_ multitrack dataset, e.g. in `../Dataset/` and the interference matrix in `../Dataset/initL.csv`.
+Using a _your_ multitrack dataset, e.g. in `../path/to/dataset` and the interference matrix in `../path/to/matrix.csv`.
 
-    $./mirapie.py    ../path/to/dataset/   ../path/to/csv-matrix/initL.csv -p 1 -m 3
+    $./mirapie.py    ../path/to/dataset/   ../path/to/matrix.csv -p 1 -m 3
 
 ## Installation
 1 Setup the virtual enviroment, run it and install all the dependencies
