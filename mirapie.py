@@ -31,6 +31,8 @@ import sys
 import yaml         #for yml file handling
 import logging      #for printing managing
 import traceback    #for exception handling
+import time         #for measuring the time elapsed
+import datetime     #for homan readable time
 
 from mira import Mira
 
@@ -120,4 +122,7 @@ def command_line_runner():
 
 
 if __name__ == '__main__':
+    start = time.time()
     command_line_runner()
+    end   = time.time()
+    print("TIME ELAPSED",end-start, "seconds")

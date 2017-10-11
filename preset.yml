@@ -42,10 +42,10 @@
   nfft: 4096.0
   output_folder_path: results/
   overlap: 0.75
-  preset_name: Q
+  preset_name: Huey Lewis Concert
   prj_dim: 512
   rho: 10000
   audio_max_len_sec:  15
-  audio_duration_sec: 300
+  audio_duration_sec: 
   audio_init_pos_sec: 0
   smooth_n_iter: 3
