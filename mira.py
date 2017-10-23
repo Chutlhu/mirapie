@@ -29,6 +29,8 @@ import yaml         #for yml file handling
 import datetime     #for displaying current audio position
 import logging      #for printing managing
 import traceback    #for exception handling
+import time         #for measuring the time elapsed
+
 
 import numpy             as np  #for scientific e matrix computation ~ matlab
 import numexpr           as ne
@@ -144,9 +146,9 @@ class Mira(object):
         if (settings["audio_duration_sec"] is None):
             settings["audio_duration_sec"] = 10000000
         self.usr_len_sec        = int(settings["audio_duration_sec"])
-        self.usr_strt_sec       = int(settings["audio_init_pos_sec"])
-        self.audio_max_len_sec  = int(settings["audio_max_len_sec"])
-        if self.audio_max_len_sec > 20:
+        self.urs_init_sec       = int(settings["audio_init_pos_sec"])
+        self.chunk_max_len_sec  = int(settings["chunk_max_len_sec"])
+        if self.chunk_max_len_sec > 20:
             print("WARNINING: chunk duration more then 20 seconds. Memory errors could occour")
         self.fs           = 0
         self.nfft         = int(settings["nfft"])
@@ -161,6 +163,7 @@ class Mira(object):
         #model parameters
         self.min_interferece          = settings["minimal_interference"]
         self.n_iter                   = int(settings["n_iter"])
+        self.n_prj_iter               = int(settings["n_prj_iter"])
         self.n_inner_iter             = int(settings["inner_iter"])
         self.alpha                    = settings["alpha"]
         self.beta                     = settings["beta"]
@@ -207,16 +210,15 @@ class Mira(object):
         print(self.dataset_tab)
 
         print('\nConsidered audio: 1 chunk of %s starting at %s'
-                %(datetime.timedelta(seconds = self.usr_len_sec),
-                  datetime.timedelta(seconds = self.usr_strt_sec)))
+                %(datetime.timedelta(seconds = self.chunk_len_sec),
+                  datetime.timedelta(seconds = self.urs_init_sec)))
 
         self.input_normalization()
 
         print("\nMatrix dimensions:")
         self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
         self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
-        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
-        print(self.dims_tab)
+        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0 , self.J])
 
         self.save_and_clear(self.X, self.gains)
 
@@ -224,7 +226,7 @@ class Mira(object):
         L, P, L0 = self.initialize_L_and_PSD(L)
 
         print("Parameters estimations...")
-        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
+        L, P, P1, cost = self.param_estimation[self.method](self, self.n_iter, L, P, L0)
 
         self.load_X_gains()
 
@@ -254,10 +256,11 @@ class Mira(object):
 
         print(self.dataset_tab)
 
-        print('\nConsidered audio: 1 chunk of %s starting at %s'
+        print('\nConsidered audio: %s chunk of %s starting at %s. Total length: %s'
                 %(len(self.chunks_pointers),
-                  datetime.timedelta(seconds = self.usr_len_sec),
-                  datetime.timedelta(seconds = self.usr_strt_sec)))
+                  datetime.timedelta(seconds = self.chunk_len_sec),
+                  datetime.timedelta(seconds = self.urs_init_sec),
+                  datetime.timedelta(seconds = self.usr_len_sec)))
 
         self.input_normalization()
 
@@ -265,10 +268,12 @@ class Mira(object):
         self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
         self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
         self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
-        print(self.dims_tab)
 
+        print("     Prjected space: Initialization...")
         Lrp, P, L0 = self.initialize_L_and_PSD(L)
-        Lrp, P, P1, cost  = self.param_estimation[self.method](self, Lrp, P, L0)
+        print("     Prjected space: Params estimation...")
+        Lrp, P, P1, cost  = self.param_estimation[self.method](self,
+                                    self.n_prj_iter, Lrp, P, L0)
 
         # ORIGINAL SPACE
         self.is_lambda_learning = False
@@ -280,7 +285,8 @@ class Mira(object):
         L, P, L0 = self.initialize_L_and_PSD(Lrp)
 
         print("     Parameters estimations...")
-        L, P, P1, cost  = self.param_estimation[self.method](self, L, P, L0)
+        L, P, P1, cost  = self.param_estimation[self.method](self,
+                                    self.n_iter, L, P, L0)
 
         self.load_X_gains()
 
@@ -305,6 +311,7 @@ class Mira(object):
 
         # PROJECTION PROCESSING
         print(" Random projection pre-processing...")
+        start = time.time()
         self.build_stft_matrix_and_spectragram_projection()
 
         print('Dataset:')
@@ -313,21 +320,28 @@ class Mira(object):
         print('\nConsidered audio: %d chunk of %s starting at %s'
                 %(len(self.chunks_pointers),
                   datetime.timedelta(seconds = self.usr_len_sec),
-                  datetime.timedelta(seconds = self.usr_strt_sec)))
+                  datetime.timedelta(seconds = self.urs_init_sec)))
 
         self.input_normalization()
 
-
         print("\nMatrix dimensions:")
-        self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
-        self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
-        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
-        print(self.dims_tab)
+        self.dims_tab.append_row(["Input Mix" , self.F,  self.T, self.I,   0   ])
+        self.dims_tab.append_row(["Interfence Matrix" ,  self.F,   0   , self.I, self.J])
+        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,   0   , self.J])
 
-        Lrp, P, L0        = self.initialize_L_and_PSD(L)
-        Lrp, P, P1, cost  = self.param_estimation[self.method](self, Lrp, P, L0)
+
+        print("     Prjected space: Initialization...")
+        Lrp, P, L0 = self.initialize_L_and_PSD(L)
+
+        print("     Prjected space: Params estimation...")
+        # Lrp, P, P1, cost  = self.param_estimation[self.method](self,
+        #                             self.n_prj_iter, Lrp, P, L0)
+        # np.save("Lrp.npy",Lrp)
+        # np.save("timingLPR.txt",time.time()-start)
+        Lrp = np.load("Lrp.npy")
 
         # CHUNK-WISE PROCESSING
+        start = time.time()
         self.is_lambda_given    = True
         self.is_lambda_learning = False
         self.olap_time = 1 #sec
@@ -348,7 +362,7 @@ class Mira(object):
                 self.dims_tab.column_headers = ["VAR/DIMS", "F [bins]", "T [frames]", "I [# mics]", "J [# instr]"]
                 self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
                 self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
-                self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
+                self.dims_tab.append_row(["Voices PSDs", self.F, self.T,  0   , self.J])
                 print(self.dims_tab)
 
             self.save_and_clear(self.X, self.gains)
@@ -358,13 +372,15 @@ class Mira(object):
             print("     Initilization...")
             L, P, L0        = self.initialize_L_and_PSD(Lrp)
             print("     Parameters estimations...")
-            L, P, P1, cost  = self.param_estimation[self.method](self, L, P, L0)
+            L, P, P1, cost  = self.param_estimation[self.method](self,
+                                    self.n_iter, L, P, L0)
 
             self.load_X_gains()
 
             print("Separation and rendering...")
             self.separation_and_rendering(L, P, offest = chunk_offset, do_olap = True)
         #end for
+        np.save("/output/timingPandSep.txt",time.time()-start)
         return print("DONE.")
 
     actions = {   1  : remove_interference_chunk,
@@ -428,7 +444,7 @@ class Mira(object):
         filename_tmp = self.input_folder_path + self.wavefiles[0]
         length_tmp, nChans_tmp, fs_tmp, depth_tmp = wav.wavinfo(filename_tmp)
         self.dataset_tab = BeautifulTable()
-        self.dataset_tab.column_headers = ["#", "NAME", "Duration [sec]", "Fs [Hz]", "Depth [Bit/s]", "nChannels"]
+        self.dataset_tab.column_headers = ["#", "NAME", "Duration [sec]", "Fs [Hz]", "Depth [B/smpl]", "nChannels"]
         try:
             for i, file in enumerate(self.wavefiles):
                 filename = self.input_folder_path + file
@@ -443,17 +459,17 @@ class Mira(object):
             log.error("Check initL and tracks name")
         self.fs = fs
         self.length = min(self.usr_len_sec*fs, length)
-        chunk_len = min(self.audio_max_len_sec*fs, length)
-        self.usr_strt_smpl = self.usr_strt_sec*fs
+        chunk_len = min(self.chunk_max_len_sec*fs, length)
+        self.usr_strt_smpl = self.urs_init_sec*fs
         self.chunks_pointers = np.ogrid[slice(self.usr_strt_smpl,
-                                              self.usr_strt_smpl + length,
+                                              self.usr_strt_smpl + self.length,
                                               chunk_len)]
         if len(self.chunks_pointers) == 1:
             self.chunk_len_sec = int(chunk_len/fs)
             log.info("Perform interference reduction just on the first "           \
                             + str(self.chunk_len_sec) + " seconds")
         else:
-            self.chunk_len_sec = self.audio_max_len_sec
+            self.chunk_len_sec = self.chunk_max_len_sec
             log.info("Perform interference reduction per chunks: "                 \
                             + str(len(self.chunks_pointers)) + " chunk of "     \
                             + str(self.chunk_len_sec)        + " seconds each")
@@ -504,19 +520,19 @@ class Mira(object):
         return
 
     def build_stft_matrix_and_spectragram_projection(self, offset = usr_strt_smpl, projection = "normal0"):
-        chunk_prj_len_sec = 60
+        chunk_prj_len_sec = self.chunk_len_sec
         chunk_prjs_pointers = np.ogrid[slice(offset,
                                              offset + self.length,
                                              chunk_prj_len_sec*self.fs)]
         nchunks = len(chunk_prjs_pointers)
 
         for p, pchunk in enumerate(chunk_prjs_pointers):
-
-
+            # if p == 2:
+            #     break
             if p == nchunks-1 and p > 0:
                 break
             elif p == nchunks-2 or (p == 0 and nchunks == 1):
-                print("    Projecting last chunk...")
+                print("    Projecting last chunks...")
                 chunk_prj_len_sec *= 2
             else:
                 print("    Projecting chunk %d/%d..."%(p+1,len(chunk_prjs_pointers)-1))
@@ -548,7 +564,7 @@ class Mira(object):
                     self.F, self.T = sig_in_freq.shape
                     self.R = int(self.prj_dim)
                     if self.R > self.T:
-                        raise ValueError("aaaaaaaaaaaaaa phuf!")
+                        raise ValueError("R > T: Projection dimension bigger than number of frames \n aaaaaaaaaaaaaa phuf!")
 
                     if projection == "no":
                         self.R = self.T
@@ -573,9 +589,24 @@ class Mira(object):
 
             self.X += M
             Tfull  += self.T
-
         #end for p
-        self.V = np.abs(self.X/Tfull)**self.alpha
+
+        # print(Tfull, self.X.shape)
+        # print(np.sum(np.abs(self.X), axis = 0)[0:4,:])
+        # 1/0
+        # print(np.max(np.abs(self.X)))
+        # self.X /= Tfull
+        # print(np.max(np.abs(self.X)), Tfull)
+
+        self.V = np.abs(self.X)**self.alpha
+
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(ncols = self.I)
+        # for a in range(self.I):
+        #     ax[a].imshow(np.abs(self.V[:,:,a])/np.max(np.abs(self.V)))
+        # plt.savefig("V_%d.pdf"%(a))
+        # plt.close()
+
         self.F, self.T, self.I = self.X.shape
         log.info("INPUT MATRIX DIMENSIONS: F = %d bins, T = %d frames, I = %d mics"\
                                         %(self.X.shape))
@@ -595,15 +626,15 @@ class Mira(object):
         log.info("... done.")
         return
 
-    def marginal_modelling_param_estimation(self, L, P, L0 = None):
+    def marginal_modelling_param_estimation(self, n_iter, L, P, L0 = None):
 
         P1   = None
-        cost = np.zeros(self.n_iter)
+        cost = np.zeros(n_iter)
 
-        for it in range(self.n_iter):
+        for it in range(n_iter):
 
-            print("      estimation, itaration: %d/%d" % (it+1, self.n_iter))
-            log.info("  estimation, itaration: %d/%d" % (it+1, self.n_iter))
+            print("      estimation, itaration: %d/%d" % (it+1, n_iter))
+            log.info("  estimation, itaration: %d/%d" % (it+1, n_iter))
 
             if self.do_cost:
                 cost[it] = self.compute_beta_cost_MM(L, P, self.V)

@@ -37,6 +37,8 @@ def wavinfo(filename):
     length = fileHandle.getnframes()
     sampleWidth = fileHandle.getsampwidth()
     fileHandle.close()
+    if sampleWidth != 2:
+        raise ValueError("Only wav at 16 bit/smpl")
     return length, nChans, fs, sampleWidth
 
 
@@ -66,6 +68,11 @@ def wavwrite(signal, fs, destinationFile, nbytes=2,verbose=True):
     fileHandle.close()
     if verbose:
         print('File written to ' + destinationFile)
+
+def wavconcat(signal, fs, destinationFile, nbytes=2, verbose = True):
+    """concatenates audio data into an exsistent file"""
+    return
+
 
 
 def wavread(fileName, lmax=np.infty, offset = 0, len_in_smpl = False):
