@@ -1,6 +1,6 @@
 # mirapie
 
-## Multitrack Interference RemovAl for full-lenght live recordings
+## Multitrack Interference RemovAl for full-length live recordings
 
 Example:
 
