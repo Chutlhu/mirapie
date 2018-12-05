@@ -62,6 +62,11 @@ def load(preset_num):
 
 
 def get_instructions(args):
+
+    print(args['input_folder_path'])
+    print(args['init_matrix_file'])
+
+
     mr = Mira(settings =     load(args["preset"]),
              input_folder_path  = args["input_folder_path"],
              init_matrix_file   = args["init_matrix_file"],
@@ -90,8 +95,14 @@ def get_parser():
                         help    = 'location of the multitrack recordings [.wav]',
                         type    = str,
                         metavar = 'path-to-wavs')
+    # either the init matrix
     parser.add_argument('init_matrix_file',
                         help = 'name of the initial interference matrix [.csv]',
+                        type    = str,
+                        metavar = 'csv-matrix')
+    # or the path to the recordings
+    parser.add_argument('path_to_soundcheck',
+                        help = 'path to the soundcheck folder',
                         type    = str,
                         metavar = 'csv-matrix')
 

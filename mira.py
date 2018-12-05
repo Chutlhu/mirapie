@@ -367,9 +367,68 @@ class Mira(object):
         #end for
         return print("DONE.")
 
+    def remove_interference_chunk(self):
+
+        print("\n\n\n"                                                                             + \
+              "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" + \
+              "~~~~                          ESTIMATE ~ INTERFERENCE                       ~~~~\n" + \
+              "~~~~                                 MATRIX                                 ~~~~\n" + \
+              "~~~~                                  FROM                                  ~~~~\n" + \
+              "~~~~                               SOUNDCHECK                               ~~~~\n" + \
+              "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+
+        print("Reading input...\n")
+        self.import_wave_and_sources_names_from_csv()
+        self.dataset_info()
+
+        self.L0, L = self.load_L0_and_L()
+
+        self.build_stft_matrix_and_spectragram()
+        print('Dataset:')
+        print(self.dataset_tab)
+
+        print('\nConsidered audio: 1 chunk of %s starting at %s'
+                %(datetime.timedelta(seconds = self.usr_len_sec),
+                  datetime.timedelta(seconds = self.usr_strt_sec)))
+
+        self.input_normalization()
+
+        print("\nMatrix dimensions:")
+        self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
+        self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
+        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
+        print(self.dims_tab)
+
+        self.save_and_clear(self.X, self.gains)
+
+        print("\nInitilization...\n")
+        L, P, L0 = self.initialize_L_and_PSD(L)
+
+        print("Parameters estimations...")
+        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
+
+        self.load_X_gains()
+
+        print("Separation and rendering...")
+        return self.separation_and_rendering(L, P)
+
+    def remove_interference_from_soundcheck(self):
+
+        print('Remove interference from soundtrack')
+
+        print('read target wav file, list properties and channels')
+        print("Reading input...\n")
+        self.import_wave_and_sources_names_from_csv()
+        self.dataset_info()
+
+        print('match channels with instruments in soundcheck files')
+
+
+
     actions = {   1  : remove_interference_chunk,
                   2  : remove_interference_chunk_projecting,
-                  3  : remove_interference_fulltrack }
+                  3  : remove_interference_fulltrack,
+                  4  : remove_interference_from_soundcheck}
 
 
 ################################################################################

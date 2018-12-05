@@ -39,7 +39,6 @@ def wavinfo(filename):
     fileHandle.close()
     return length, nChans, fs, sampleWidth
 
-
 def wavwrite(signal, fs, destinationFile, nbytes=2,verbose=True):
     """writes audio data into a file"""
     fileHandle = wave.open(destinationFile, 'wb')
@@ -80,6 +79,7 @@ def wavread(fileName, lmax=np.infty, offset = 0, len_in_smpl = False):
             return True
         except:
             return False
+
     if not isValid(fileName):
         print("invalid WAV file. Aborting")
         return None
@@ -88,6 +88,8 @@ def wavread(fileName, lmax=np.infty, offset = 0, len_in_smpl = False):
     length, nChans, fs, sampleWidth = wavinfo(fileName)
     if not len_in_smpl:
         lmax = lmax * fs
+    if sampleWidth == 3:
+        raise ValueError('Method not implemented for wav at 24 bit')
     length = min(length - offset, lmax)
     waveform = np.zeros((length, nChans))
 
@@ -102,6 +104,7 @@ def wavread(fileName, lmax=np.infty, offset = 0, len_in_smpl = False):
         tempData = np.fromstring(str_bytestream, 'h')
         tempData = tempData.astype(float)
         tempData = tempData.reshape(batchSize, nChans)
+        print(tempData.shape, batchSize, nChans)
         waveform[pos:pos+batchSize, :] = tempData / float(2**(8*sampleWidth - 1))
         pos += batchSize
     fileHandle.close()
