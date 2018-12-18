@@ -120,3 +120,6 @@ results/
 
 #profile output
 *.dat
+
+#log data
+*.log
