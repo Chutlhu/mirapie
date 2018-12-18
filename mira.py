@@ -34,6 +34,8 @@ import numpy             as np  #for scientific e matrix computation ~ matlab
 import numexpr           as ne
 import os.path           as path
 
+import soundfile as sf
+
 from joblib                import Parallel, delayed
 from opt_einsum            import contract
 from scipy.stats           import gmean
@@ -130,7 +132,7 @@ class Mira(object):
         self.do_rendering = True
 
         #debug info
-        self.do_cost  = False
+        self.do_cost  = True
 
         #L is given by the user
         self.is_lambda_given = False
@@ -412,23 +414,166 @@ class Mira(object):
         print("Separation and rendering...")
         return self.separation_and_rendering(L, P)
 
-    def remove_interference_from_soundcheck(self):
+    def estimate_interference_from_soundcheck(self, j):
 
-        print('Remove interference from soundtrack')
+        print('Estimate interference matrix from soundcheck')
 
         print('read target wav file, list properties and channels')
+
+        from soundcheck import load_wav
+        import glob
+
+        self.J = 1
+        soundcheck_filenames = glob.glob(self.input_folder_path + '*.wav')
+        curr_soundcheck_filename = sorted(soundcheck_filenames)[j]
+
+        print(sorted(soundcheck_filenames)[j])
+
+        mic_wavfile = load_wav(curr_soundcheck_filename)
+        
+        wav = mic_wavfile[1]
+        self.N, self.C = wav.shape
+        self.X = stft.stft(wav, self.nfft, self.hop)
+        self.F, self.T, self.I = self.X.shape
+        print(self.N, self.C, self.F, self.T, self.I, self.J)
+
+        self.X = np.maximum(self.X, EPS)
+        self.V = np.abs(self.X)**2
+        self.V = np.maximum(self.V, EPS)
+        mean_energy = np.mean(np.mean(self.V,0),0)
+        mean_energy /= np.max(mean_energy)
+        self.L = np.ones((self.F, self.I, self.J))
+        # self.L[:,:,0] = mean_energy
+        self.L0 = np.ones((self.F, self.I, self.J))
+
+        print("\nInitilization of P with soundcheck data...\n")
+        self.P = np.zeros((self.F, self.T, self.J))
+        self.P[:,:,0] = np.mean(self.V, 2)
+
+        print("\nEstimation of L and P with soundcheck data...\n")
+        L = self.L.copy()
+        L0 = self.L.copy()
+        P = self.P.copy()
+
+        # print('L',L.shape)
+        # print('L0',L0.shape)
+        # print('P',P.shape)
+
+        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
+  
+        return L
+
+    def remove_interference_given_matrix(self, L):
+        print('Remove interference from soundtrack')
+
+        from soundcheck import load_wav
+        import glob
+
+        print(self.input_folder_path[:-1])
+        mic_wavfile = load_wav(self.input_folder_path[:-1])
+        
+        wav = mic_wavfile[1]
+        fs  = mic_wavfile[4]
+        self.N, self.C = wav.shape
+        self.X = stft.stft(wav, self.nfft, self.hop)
+        self.F, self.T, self.J = self.X.shape
+        self.F, self.I, self.J = L.shape
+        print(self.N, self.C, self.F, self.T, self.I, self.J)
+
+        self.V = np.maximum(np.abs(self.X)**2, EPS)
+        self.L = L.copy()
+        self.L0 = L.copy()
+        self.P = np.zeros((self.F, self.T, self.J))
+        for j in range(self.J):
+            self.P[:,:,j] = np.sum((self.V / self.L[:,None,:,j]), axis = 2)/self.I
+
+        # self.save_and_clear(self.X, self.gains)
+        print("     Initilization...")
+        L = self.L.copy()
+        L0 = self.L0.copy()
+        P = self.P.copy()
+
+        print("     Parameters estimations...")
+        L, P, P1, cost  = self.param_estimation[self.method](self, L, P, L0)
+
+        # self.load_X_gains()
+
+        print("Separation and rendering...")
+        model = self.compute_Pi(L, P)
+
+        for j in range(self.J):
+            
+            Y = np.zeros((self.F, self.T, self.I)).astype(np.complex64)
+            for k in range(self.I):
+                #compute the wiener gain to separate image of j in this channel
+                W = (P[:,:,j] * L[:, None, k, j]) / model[:,:,k]
+
+                #apply the Wiener gains as in (7)
+                Y[:,:,k] = W * self.X[:,:,k]
+
+        wav =  stft.istft(                                     \
+                    Y.astype('complex'),
+                    1,
+                    self.hop,
+                    real  = True).astype(np.float32)
+
+        for j in range(self.J):
+            sf.write('./instrument_' + str(j) + '.wav', wav[:,j], fs)
+
+        return L
+
+    def remove_interference_given_matrix2(self, Lnew):
+
+        print("\n\n\n"                                                                             + \
+              "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" + \
+              "~~~~                          ESTIMATE ~ INTERFERENCE                       ~~~~\n" + \
+              "~~~~                                 MATRIX                                 ~~~~\n" + \
+              "~~~~                                  FROM                                  ~~~~\n" + \
+              "~~~~                               SOUNDCHECK                               ~~~~\n" + \
+              "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+
         print("Reading input...\n")
         self.import_wave_and_sources_names_from_csv()
         self.dataset_info()
 
-        print('match channels with instruments in soundcheck files')
+        self.L0, L = self.load_L0_and_L()
 
+        self.build_stft_matrix_and_spectragram()
+        print('Dataset:')
+        print(self.dataset_tab)
 
+        print('\nConsidered audio: 1 chunk of %s starting at %s'
+                %(datetime.timedelta(seconds = self.usr_len_sec),
+                  datetime.timedelta(seconds = self.usr_strt_sec)))
+
+        self.input_normalization()
+
+        print("\nMatrix dimensions:")
+        self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
+        self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
+        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
+        print(self.dims_tab)
+        self.is_lambda_learning = False
+
+        self.save_and_clear(self.X, self.gains)
+
+        print("\nInitilization...\n")
+        L, P, L0 = self.initialize_L_and_PSD(Lnew)
+
+        print("Parameters estimations...")
+        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
+
+        self.load_X_gains()
+
+        print("Separation and rendering...")
+        return self.separation_and_rendering(L, P)
 
     actions = {   1  : remove_interference_chunk,
                   2  : remove_interference_chunk_projecting,
                   3  : remove_interference_fulltrack,
-                  4  : remove_interference_from_soundcheck}
+                  4  : estimate_interference_from_soundcheck,
+                  5  : remove_interference_given_matrix,
+                  6  : remove_interference_given_matrix2}
 
 
 ################################################################################
@@ -489,7 +634,9 @@ class Mira(object):
         self.dataset_tab = BeautifulTable()
         self.dataset_tab.column_headers = ["#", "NAME", "Duration [sec]", "Fs [Hz]", "Depth [Bit/s]", "nChannels"]
         try:
+            print(self.wavefiles)
             for i, file in enumerate(self.wavefiles):
+                print('here', i)
                 filename = self.input_folder_path + file
                 length, nChans, fs, depth = wav.wavinfo(filename)
                 self.dataset_tab.append_row([i+1,file, str(datetime.timedelta(seconds = length/fs)), str(fs), str(depth), str(nChans)])
@@ -534,10 +681,10 @@ class Mira(object):
                 file = file + ".wav"
 
             filename = path_to_wav + file
-
-            (sig_in_time, fs_sig) = wav.wavread(filename, int(self.chunk_len_sec*self.fs),
-                                                offset,  len_in_smpl = True)
-
+            print(filename)
+            # (sig_in_time, fs_sig) = wav.wavread(filename, int(self.chunk_len_sec*self.fs),
+            #                                     offset,  len_in_smpl = True)
+            (sig_in_time, fs_sig) = sf.read(filename)
             if (self.fs is None) or (self.fs != fs_sig):
                 log.warn("Resampling not implemented yet")
                 self.fs = fs_sig
@@ -547,7 +694,8 @@ class Mira(object):
                                     self.hop,
                                     real    = True,
                                     verbose = False
-                                    ).astype(np.complex64)[:,:,0]
+                                    ).astype(np.complex64)
+
             if idx == 0:
             #if first iteration, then allocate memory and initialize vars
                 self.shape_sig_in_time = sig_in_time.shape
@@ -558,7 +706,7 @@ class Mira(object):
             self.X[:,:,idx] = sig_in_freq
         #end for
 
-        self.V = np.abs(self.X)**self.alpha
+        self.V = np.maximum(np.abs(self.X)**self.alpha, EPS)
 
         return
 
@@ -667,6 +815,11 @@ class Mira(object):
             if self.do_cost:
                 cost[it] = self.compute_beta_cost_MM(L, P, self.V)
 
+            if self.is_lambda_learning:
+                for itL in range(self.n_lambda_iter):
+                    # L = np.maximum(L,np.random.rand(self.F, self.I, self.J))
+                    L = self.MM_update_L(L, P, self.V, self.compute_Pi(L,P))
+            
             if self.is_PSD_learning:
                 if it == 0:
                     log.debug('using L0')
@@ -678,9 +831,21 @@ class Mira(object):
             if self.do_kernel:
                 self.apply_kernel(P)
 
-            if self.is_lambda_learning:
-                for itL in range(self.n_lambda_iter):
-                    L = self.MM_update_L(L, P, self.V, self.compute_Pi(L,P))
+
+
+            # import matplotlib.pyplot as plt
+
+            # plt.subplot(151)
+            # plt.imshow(np.log(np.abs(self.V[:,:,0])))
+            # plt.subplot(152)
+            # plt.imshow(np.log(np.abs(self.V[:,:,1])))
+            # plt.subplot(153)
+            # plt.imshow(np.log(np.abs(self.V[:,:,2])))
+            # plt.subplot(154)
+            # plt.imshow(np.log(np.abs(self.V[:,:,3])))
+            # plt.subplot(155)
+            # plt.imshow(np.log(np.abs(self.P[:,:,0])))
+            # plt.show()
 
             if it == 0:
                 P1 = P.copy()
@@ -760,18 +925,20 @@ class Mira(object):
         #get the image of this source in these channels
         Y = np.zeros((self.F, self.T, n_mics)).astype(np.complex64)
 
+        counter = 0
         for k in close_mics:
         #for each channels involved
 
             #compute the wiener gain to separate image of j in this channel
-            W = (P[:,:,j] * L[:, k, j][:,None]) / model[:,:,k]
+            W = (P[:,:,j] * L[:, None, k, j]) / model[:,:,k]
 
             #if we do the approx, do the logic stuff and conclude
             if self.do_approx:
                 W = 1 - 1/(1 + np.exp(self.slope * (W - self.thresh)))
 
             #apply the Wiener gains as in (7)
-            Y[:,:,k-close_mics[0]] = W * self.X[:,:,k]
+            Y[:,:,counter] = W * self.X[:,:,k]
+            counter += 1
 
         return Y, close_mics
 
@@ -785,6 +952,7 @@ class Mira(object):
 
     def compute_beta_cost_MM(self, L, P, V):
         cost = self.beta_div_cost(V, self.compute_Pi(L, P), self.beta).sum()
+        print(cost)
         if self.do_sparsity_constraint:
             return cost + self.sparsity_cost(P)
         else:
@@ -860,26 +1028,29 @@ class Mira(object):
         log.debug(" > rendering")
 
         separated_track = np.zeros((int(self.chunk_len_sec * self.fs), len(close_mics)))
+        n = 0
         for k in close_mics:
-            n = k-close_mics[0] #relative index
+            print(self.gains.shape)
+            print(Y.shape)
+            print(k)
             sig_in_freq = self.gains[:,k,None] * Y[:,:,n]
             try:
                 separated_track[:,n][:,None] =  stft.istft(                                     \
                                                     sig_in_freq[...,None].astype('complex'),
                                                     1,
                                                     self.hop,
-                                                    real  = True,
-                                                    shape = self.shape_sig_in_time)             \
-                                                    .astype(np.float32)
+                                                    real  = True #shape = self.shape_sig_in_time)             \
+                                                    ).astype(np.float32)
             except ValueError:
                 tmp_sig = stft.istft(sig_in_freq[...,None].astype('complex'),
                                         1,
                                         self.hop,
                                         real  = True,
-                                        shape = self.shape_sig_in_time
+                                        shape = None # = self.shape_sig_in_time
                                         ).astype(np.float32)
                 separated_track = np.zeros((len(tmp_sig), len(close_mics)))
                 separated_track[:,n][:,None] =  tmp_sig
+            n += 1
         #write results
         source_filename = self.output_folder_path                               \
                             + self.soundsources[j]                              \

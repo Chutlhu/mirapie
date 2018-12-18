@@ -41,7 +41,7 @@ def load_and_resample(path_to_audio_file, fs, max_duration):
 	wav = wav - np.mean(wav, 0)
 	return wav
 
-def soundcheck(args):
+def soundcheck_preprocess(args):
 
 	## MULTICHANNEL SONG
 	# check input data
@@ -67,9 +67,11 @@ def soundcheck(args):
 	print(dims_tab)
 	print("I :", I)
 	print("J :", J)
+
+	## from recording_per_instr to recording_per_mic
+	subdir = 'mics/'
 	instr_list = [load_wav(soundcheck_filenames[j]) for j in range(J)]
 	(_, _, N, _, fs, _) = instr_list[0]
-
 	for i in range(I):
 
 		mic_wav = np.zeros((N,J))
@@ -77,50 +79,8 @@ def soundcheck(args):
 		for j in range(J):
 			mic_wav[:,j] = instr_list[j][1][:,i]
 
-		save_as = args['path_to_soundcheck'] + 'mics/' + 'mic_' + str(i) + '.wav'
+		save_as = args['path_to_soundcheck'] + subdir + 'mic_' + str(i) + '.wav'
 		sf.write(save_as, mic_wav, fs)
-
-	# for j, file in enumerate(soundcheck_names):
-		
-	# 	filename = args['path_to_soundcheck'] + file
-	# 	print('Analysis : ', filename)
-
-	# 	# load microphone recording
-	# 	(name, wav, n_smpl, n_chans, fs, sample_width) \
-	# 			= load_wav(filename)
-
-	# 	nfft = int(fs*window_sec);
-
-	# 	inst = stft.stft(wav, nfft, hop_size) # F x T x I
-
-	# 	if j == 0: # initialization at the first iteration
-	# 		L = np.random.random(I,J,F)
-
-	# 	L[i,j,f] = np.sum()
-
-
-		## SYNCHRONIZE TRACKS
-		# # resample data to 16KHz
-		# new_fs = 48e3 		# [Hz]
-		# max_duration = 3 	# [sec]
-		# wav = load_and_resample(filename, new_fs, max_duration)
-		# # wav, fs = sf.read(filename)
-
-		# print(wav.shape)
-		
-		# # find offset
-		# offset = np.zeros(n_chans)
-		# print('Run GCC_PHAT')
-		# for i in range(n_chans):
-		# 	print(wav.shape)
-		# 	offset[i], cc = gcc_phat(wav[:,i], wav[:,0], plot=True, plot_title = file)
-		# offset = offset - np.min(offset)
-		# print(offset)
-
-		# # apply offset
-		# for i in range(n_chans):
-		# 	wav[:,i] = np.concatenate((wav[int(offset[i]):,i],np.zeros(int(offset[i]))))
-
-		# plt.plot(wav)
-		plt.show()
-	return True
+	
+	sound_check_mics_filenames = glob.glob(args['path_to_soundcheck'] + subdir)
+	return I, J

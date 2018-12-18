@@ -265,6 +265,7 @@ def overlapadd(S, fdim, hop, shape=None, weightedFrames=True, verbose=False):
     sig /= weights
 
     # truncate the signal if asked for
+    print(shape)
     if shape is not None:
         sig_res = np.zeros(shape, S.dtype)
         truncateRange = [slice(0, min(x, sig.shape[i]), 1) for (i, x) in enumerate(shape)]

@@ -30,8 +30,11 @@ import argparse     #for command line parser
 import sys
 import logging      #for printing managing
 import traceback    #for exception handling
+import yaml
+import numpy as np
 
-from soundcheck import soundcheck
+from mira import Mira
+from soundcheck import soundcheck_preprocess
 
 #LOGGER
 log = logging.getLogger("soundcheck")
@@ -48,7 +51,15 @@ handler_file.setFormatter(formatter)
 handler_file.setLevel(logging.DEBUG)
 log.addHandler(handler_file)
 
-
+def load(preset_num):
+    #Load preset in preset.yaml
+    with open("preset.yml", "r") as file_descriptor:
+        presets = yaml.load(file_descriptor)
+    try:
+        return presets[preset_num]
+    except Exception:
+        log.critical("Wrong preset number")
+    return False
 
 # check input params and add default configuration
 def get_instructions(args):
@@ -66,9 +77,37 @@ def get_instructions(args):
 def run_soundcheck(args):
     try:
         params = get_instructions(args)
-        soundcheck(params)
-        return print('done.')
+
+        I, J = soundcheck_preprocess(params)
+        preset_num = 2
+
+        # MIRA on soundcheck
+        for j in range(J):
+            mr = Mira(   settings           = load(preset_num),
+                         input_folder_path  = args["path_to_soundcheck"],
+                         function_mode      = 4)
+            Lj = mr.actions[4](mr,j)
+            print(np.mean(Lj,0))
+            if j == 0:
+                F, I, _ = Lj.shape
+                L = np.zeros((F,I,J))
+            L[:,:,j] = Lj.squeeze()
+
+        L0 = np.mean(L,0)
+        np.save('soundcheckL.npy', L)
+
+        # # MIRA on real recording
+        # del mr
+        # mr = Mira(  settings           = load(preset_num),
+        #             input_folder_path  = args["path_to_song"],
+        #             init_matrix_file   = args["path_to_song"][-5:] + '.csv',
+        #             lambda_matrix_file = args["matrix"],
+        #             function_mode      = 6)
+        # return mr.actions[6](mr, L)
+
+
     except Exception:
+        print('Error. Aborting.')
         log.critical(traceback.format_exc())
 
     return False

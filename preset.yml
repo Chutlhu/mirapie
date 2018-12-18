@@ -15,7 +15,7 @@
   is_lambda_learning: true
   lambda_iter: 1
   minimal_interference: 0.5
-  n_iter: 6
+  n_iter: 1
   nfft: 512
   overlap: 0.1
   prj_dim: 512
@@ -43,6 +43,56 @@
   output_folder_path: results/
   overlap: 0.75
   preset_name: Q
+  prj_dim: 512
+  rho: 10000
+  audio_max_len_sec:  15
+  audio_duration_sec: 300
+  audio_init_pos_sec: 0
+  smooth_n_iter: 3
+
+2:
+  alpha: 2.0
+  beta: 0.0
+  do_approx: false
+  do_kernel: false
+  do_smooth_init: true
+  do_sparsity_constraint: false
+  inner_iter: 1
+  is_PSD_learning: true
+  is_lambda_freq_dependant: true
+  is_lambda_learning: true
+  lambda_iter: 1
+  minimal_interference: 0.9
+  n_iter: 6
+  nfft: 4096.0
+  output_folder_path: results/
+  overlap: 0.75
+  preset_name: Q
+  prj_dim: 512
+  rho: 10000
+  audio_max_len_sec:  15
+  audio_duration_sec: 300
+  audio_init_pos_sec: 0
+  smooth_n_iter: 3
+
+3:
+  alpha: 2.0
+  beta: 0.0
+  do_approx: false
+  do_kernel: false
+  do_smooth_init: true
+  do_sparsity_constraint: false
+  inner_iter: 1
+  is_PSD_learning: true
+  is_lambda_freq_dependant: true
+  is_lambda_learning: false
+  lambda_iter: 1
+  minimal_interference: 0.5
+  n_iter: 0
+  nfft: 4096.0
+  output_folder_path: results/
+  overlap: 0.75
+  preset_name: Q1
   prj_dim: 512
   rho: 10000
   audio_max_len_sec:  15
