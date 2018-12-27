@@ -33,6 +33,7 @@ import traceback    #for exception handling
 import numpy             as np  #for scientific e matrix computation ~ matlab
 import numexpr           as ne
 import os.path           as path
+import soundfile         as sf
 
 from joblib                import Parallel, delayed
 from opt_einsum            import contract
@@ -434,7 +435,7 @@ class Mira(object):
                 filename = self.input_folder_path + file
                 length, nChans, fs, depth = wav.wavinfo(filename)
                 self.dataset_tab.append_row([i+1,file, str(datetime.timedelta(seconds = length/fs)), str(fs), str(depth), str(nChans)])
-                if length != length_tmp or fs != fs_tmp or nChans != nChans_tmp:
+                if length != length_tmp or fs != fs_tmp:
                     raise ValueError("Dataset is not consistent")
 
                 length_tmp = length
@@ -476,19 +477,27 @@ class Mira(object):
 
             filename = path_to_wav + file
 
-            (sig_in_time, fs_sig) = wav.wavread(filename, int(self.chunk_len_sec*self.fs),
-                                                offset,  len_in_smpl = True)
+            # (sig_in_time, fs_sig) = wav.wavread(filename, int(self.chunk_len_sec*self.fs),
+            #                                     offset,  len_in_smpl = True)
+            sig_in_time, fs_sig = sf.read(filename, start = offset, stop=offset + int(self.chunk_len_sec*self.fs))
+            if len(sig_in_time.shape) > 1 and sig_in_time.shape[1] > 1:
+                sig_in_time = np.mean(sig_in_time,1) # to mono
+            sig_in_time = sig_in_time[:,None]
+            # import matplotlib.pyplot as plt
+            # plt.plot(sig_in_time)
+            # plt.show()
 
             if (self.fs is None) or (self.fs != fs_sig):
                 log.warn("Resampling not implemented yet")
                 self.fs = fs_sig
 
-            sig_in_freq = stft.stft(wav.to_mono(sig_in_time),
+            sig_in_freq = stft.stft(sig_in_time,
                                     self.nfft,
                                     self.hop,
                                     real    = True,
                                     verbose = False
                                     ).astype(np.complex64)[:,:,0]
+
             if idx == 0:
             #if first iteration, then allocate memory and initialize vars
                 self.shape_sig_in_time = sig_in_time.shape
@@ -683,12 +692,13 @@ class Mira(object):
 
         for j in range(self.J):
             #for each sources
-            log.info("KAMIR sepatation, source: %d/%d" % (j+1, self.J))
+            log.info("      sepatation, source: %d/%d" % (j+1, self.J))
 
             #Y is the image of the source in its channels of importance
             (Y, close_mics) = self.separate_and_update_stft_of_source(j, L, P, model)
 
             if self.do_rendering:
+                print("      rendering source: %d/%d" % (j+1, self.J))
                 self.render_source(j, Y, close_mics, offest, do_olap)
         return
 
@@ -812,7 +822,11 @@ class Mira(object):
                                                     real  = True,
                                                     shape = self.shape_sig_in_time)             \
                                                     .astype(np.float32)
+                # import matplotlib.pyplot as plt
+                # plt.plot(separated_track[:,n])
+                # plt.show()
             except ValueError:
+                log.error('iSTFT fails')
                 tmp_sig = stft.istft(sig_in_freq[...,None].astype('complex'),
                                         1,
                                         self.hop,

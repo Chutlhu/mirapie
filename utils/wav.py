@@ -110,4 +110,7 @@ def wavread(fileName, lmax=np.infty, offset = 0, len_in_smpl = False):
 def to_mono(sig):
     if (sig.shape[1] > 1):
         sig = 0.5*(sig[:,0] + sig[:,1])
+    if len(sig.shape) == 1:
+        sig = sig[:,None]
+
     return (sig)

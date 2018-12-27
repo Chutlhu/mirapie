@@ -49,3 +49,78 @@
   audio_duration_sec: 300
   audio_init_pos_sec: 0
   smooth_n_iter: 3
+
+3:
+  alpha: 2.0
+  beta: 0.0
+  do_approx: false
+  do_kernel: false
+  do_smooth_init: false
+  do_sparsity_constraint: true
+  inner_iter: 1
+  is_PSD_learning: true
+  is_lambda_freq_dependant: true
+  is_lambda_learning: true
+  lambda_iter: 1
+  minimal_interference: 0.5
+  n_iter: 6
+  nfft: 4096.0
+  output_folder_path: results/gorillaz/
+  overlap: 0.75
+  preset_name: song1_more_sparse
+  prj_dim: 512
+  rho: 10000
+  audio_max_len_sec:  100
+  audio_duration_sec: 300
+  audio_init_pos_sec: 0
+  smooth_n_iter: 1
+
+4:
+  alpha: 2.0
+  beta: 0.0
+  do_approx: false
+  do_kernel: false
+  do_smooth_init: true
+  do_sparsity_constraint: true
+  inner_iter: 1
+  is_PSD_learning: true
+  is_lambda_freq_dependant: true
+  is_lambda_learning: true
+  lambda_iter: 1
+  minimal_interference: 0.5
+  n_iter: 6
+  nfft: 4096.0
+  output_folder_path: results/sport/
+  overlap: 0.75
+  preset_name: bayern
+  prj_dim: 512
+  rho: 10000
+  audio_max_len_sec:  60
+  audio_duration_sec: 300
+  audio_init_pos_sec: 0
+  smooth_n_iter: 1
+
+5:
+  alpha: 2.0
+  beta: 0.0
+  do_approx: false
+  do_kernel: false
+  do_smooth_init: true
+  do_sparsity_constraint: true
+  inner_iter: 1
+  is_PSD_learning: true
+  is_lambda_freq_dependant: true
+  is_lambda_learning: true
+  lambda_iter: 1
+  minimal_interference: 0.9
+  n_iter: 6
+  nfft: 4096.0
+  output_folder_path: results/sport/
+  overlap: 0.75
+  preset_name: bayern_ball
+  prj_dim: 512
+  rho: 100000
+  audio_max_len_sec:  60
+  audio_duration_sec: 300
+  audio_init_pos_sec: 0
+  smooth_n_iter: 1
