@@ -66,7 +66,6 @@ def get_instructions(args):
     print(args['input_folder_path'])
     print(args['init_matrix_file'])
 
-
     mr = Mira(settings =     load(args["preset"]),
              input_folder_path  = args["input_folder_path"],
              init_matrix_file   = args["init_matrix_file"],

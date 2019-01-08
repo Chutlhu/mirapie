@@ -107,75 +107,148 @@ class Mira(object):
                 input_folder_path  = "toydata/",
                 init_matrix_file   = "toydata/initL.csv",
                 lambda_matrix_file = None,
+                soundcheck = False,
+                filenames  = None,
+                waveforms  = None,
+                int_matrix = None, 
                 method             = "MM",
                 function_mode      = 0):
 
         log.info("MIRA inizialization")
 
-        #I/O files and folder
-        if input_folder_path[-1] != "/":
-            input_folder_path   = input_folder_path + "/"
-        self.input_folder_path  = input_folder_path
-        self.L0_file            = init_matrix_file
-        self.L_file             = lambda_matrix_file
-        self.dataset_dir        = os.path.basename(os.path.normpath(input_folder_path))
-        self.preset_name        = str(settings["preset_name"])
-        self.output_folder_path = settings["output_folder_path"] + self.preset_name + "/"
-        if not os.path.exists(self.output_folder_path):
-            os.makedirs(self.output_folder_path)
+        if not soundcheck:
+            #I/O files and folder
+            if input_folder_path[-1] != "/":
+                input_folder_path   = input_folder_path + "/"
+            self.input_folder_path  = input_folder_path
+            self.L0_file            = init_matrix_file
+            self.L_file             = lambda_matrix_file
+            self.dataset_dir        = os.path.basename(os.path.normpath(input_folder_path))
+            self.preset_name        = str(settings["preset_name"])
+            self.output_folder_path = settings["output_folder_path"] + self.preset_name + "/"
+            if not os.path.exists(self.output_folder_path):
+                os.makedirs(self.output_folder_path)
 
-        #save preset file
-        with open(self.output_folder_path + 'preset_config ' + self.preset_name + '.yml', 'w') as outfile:
-            yaml.dump(settings, outfile, default_flow_style=False)
+            #save preset file
+            with open(self.output_folder_path + 'preset_config ' + self.preset_name + '.yml', 'w') as outfile:
+                yaml.dump(settings, outfile, default_flow_style=False)
 
-        #Output: rendering
-        self.do_rendering = True
+            #Output: rendering
+            self.do_rendering = True
 
-        #debug info
-        self.do_cost  = True
+            #debug info
+            self.do_cost  = True
 
-        #L is given by the user
-        self.is_lambda_given = False
-        self.n_lambda_iter   = int(settings["lambda_iter"])
+            #L is given by the user
+            self.is_lambda_given = False
+            self.n_lambda_iter   = int(settings["lambda_iter"])
 
-        #mode
-        self.mode   = function_mode
-        self.method = method
+            #mode
+            self.mode   = function_mode
+            self.method = method
 
-        #Audio parameters
-        if (settings["audio_duration_sec"] is None):
-            settings["audio_duration_sec"] = 10000000
-        self.usr_len_sec        = int(settings["audio_duration_sec"])
-        self.usr_strt_sec       = int(settings["audio_init_pos_sec"])
-        self.audio_max_len_sec  = int(settings["audio_max_len_sec"])
-        if self.audio_max_len_sec > 20:
-            print("WARNINING: chunk duration more then 20 seconds. Memory errors could occour")
-        self.fs           = 0
-        self.nfft         = int(settings["nfft"])
-        self.overlap      = settings["overlap"]
-        self.hop          = float(self.nfft)*(1.0-self.overlap)
+            #Audio parameters
+            if (settings["audio_duration_sec"] is None):
+                settings["audio_duration_sec"] = 10000000
+            self.usr_len_sec        = int(settings["audio_duration_sec"])
+            self.usr_strt_sec       = int(settings["audio_init_pos_sec"])
+            self.audio_max_len_sec  = int(settings["audio_max_len_sec"])
+            if self.audio_max_len_sec > 20:
+                print("WARNINING: chunk duration more then 20 seconds. Memory errors could occour")
+            self.fs           = 0
+            self.nfft         = int(settings["nfft"])
+            self.overlap      = settings["overlap"]
+            self.hop          = float(self.nfft)*(1.0-self.overlap)
 
-        #kernel parameters
-        self.do_kernel   = settings["do_kernel"]
-        if self.do_kernel:
-            self.proximity_kernel = np.array(eval(settings["kernel"]))
+            #kernel parameters
+            self.do_kernel   = settings["do_kernel"]
+            if self.do_kernel:
+                self.proximity_kernel = np.array(eval(settings["kernel"]))
 
-        #model parameters
-        self.min_interferece          = settings["minimal_interference"]
-        self.n_iter                   = int(settings["n_iter"])
-        self.n_inner_iter             = int(settings["inner_iter"])
-        self.alpha                    = settings["alpha"]
-        self.beta                     = settings["beta"]
-        self.rho                      = settings["rho"]
-        self.prj_dim                  = settings["prj_dim"]
-        self.do_sparsity_constraint   = settings["do_sparsity_constraint"]
-        self.is_lambda_freq_dependant = settings["is_lambda_freq_dependant"]
-        self.is_lambda_learning       = settings["is_lambda_learning"]
-        self.is_PSD_learning          = settings["is_PSD_learning"]
-        self.do_smooth_init           = settings["do_smooth_init"]
-        self.smooth_n_iter            = int(settings["smooth_n_iter"])
-        self.do_approx                = settings["do_approx"]
+            #model parameters
+            self.min_interferece          = settings["minimal_interference"]
+            self.n_iter                   = int(settings["n_iter"])
+            self.n_inner_iter             = int(settings["inner_iter"])
+            self.alpha                    = settings["alpha"]
+            self.beta                     = settings["beta"]
+            self.rho                      = settings["rho"]
+            self.prj_dim                  = settings["prj_dim"]
+            self.do_sparsity_constraint   = settings["do_sparsity_constraint"]
+            self.is_lambda_freq_dependant = settings["is_lambda_freq_dependant"]
+            self.is_lambda_learning       = settings["is_lambda_learning"]
+            self.is_PSD_learning          = settings["is_PSD_learning"]
+            self.do_smooth_init           = settings["do_smooth_init"]
+            self.smooth_n_iter            = int(settings["smooth_n_iter"])
+            self.do_approx                = settings["do_approx"]
+        else:
 
+            self.filenames = filenames
+            self.waveforms = waveforms
+            self.int_matrix = int_matrix
+
+            #I/O files and folder
+            if input_folder_path[-1] != "/":
+                input_folder_path   = input_folder_path + "/"
+            self.input_folder_path  = input_folder_path
+            self.L0_file            = init_matrix_file
+            self.L_file             = lambda_matrix_file
+            self.dataset_dir        = os.path.basename(os.path.normpath(input_folder_path))
+            self.preset_name        = str(settings["preset_name"])
+            self.output_folder_path = settings["output_folder_path"] + self.preset_name + "/"
+            if not os.path.exists(self.output_folder_path):
+                os.makedirs(self.output_folder_path)
+
+            #save preset file
+            with open(self.output_folder_path + 'preset_config ' + self.preset_name + '.yml', 'w') as outfile:
+                yaml.dump(settings, outfile, default_flow_style=False)
+
+            #Output: rendering
+            self.do_rendering = True
+
+            #debug info
+            self.do_cost  = True
+
+            #L is given by the user
+            self.is_lambda_given = True
+            self.n_lambda_iter   = int(settings["lambda_iter"])
+
+            #mode
+            self.mode   = function_mode
+            self.method = method
+
+            #Audio parameters
+            if (settings["audio_duration_sec"] is None):
+                settings["audio_duration_sec"] = 10000000
+            self.usr_len_sec        = int(settings["audio_duration_sec"])
+            self.usr_strt_sec       = int(settings["audio_init_pos_sec"])
+            self.audio_max_len_sec  = int(settings["audio_max_len_sec"])
+            if self.audio_max_len_sec > 20:
+                print("WARNINING: chunk duration more then 20 seconds. Memory errors could occour")
+            self.fs           = 0
+            self.nfft         = int(settings["nfft"])
+            self.overlap      = settings["overlap"]
+            self.hop          = float(self.nfft)*(1.0-self.overlap)
+
+            #kernel parameters
+            self.do_kernel   = settings["do_kernel"]
+            if self.do_kernel:
+                self.proximity_kernel = np.array(eval(settings["kernel"]))
+
+            #model parameters
+            self.min_interferece          = settings["minimal_interference"]
+            self.n_iter                   = int(settings["n_iter"])
+            self.n_inner_iter             = int(settings["inner_iter"])
+            self.alpha                    = settings["alpha"]
+            self.beta                     = settings["beta"]
+            self.rho                      = settings["rho"]
+            self.prj_dim                  = settings["prj_dim"]
+            self.do_sparsity_constraint   = settings["do_sparsity_constraint"]
+            self.is_lambda_freq_dependant = settings["is_lambda_freq_dependant"]
+            self.is_lambda_learning       = settings["is_lambda_learning"]
+            self.is_PSD_learning          = settings["is_PSD_learning"]
+            self.do_smooth_init           = settings["do_smooth_init"]
+            self.smooth_n_iter            = int(settings["smooth_n_iter"])
+            self.do_approx                = settings["do_approx"]
 
         # APPLICATION VARIABLE
         self.tmp_folder = mkdtemp()
@@ -414,54 +487,52 @@ class Mira(object):
         print("Separation and rendering...")
         return self.separation_and_rendering(L, P)
 
-    def estimate_interference_from_soundcheck(self, j):
+    def estimate_interference_from_soundcheck(self):
 
         print('Estimate interference matrix from soundcheck')
 
         print('read target wav file, list properties and channels')
 
-        from soundcheck import load_wav
-        import glob
+        print(self.filenames)
 
-        self.J = 1
-        soundcheck_filenames = glob.glob(self.input_folder_path + '*.wav')
-        curr_soundcheck_filename = sorted(soundcheck_filenames)[j]
+        self.J = len(self.filenames)
+        self.I, self.J, self.N= self.waveforms.shape
 
-        print(sorted(soundcheck_filenames)[j])
+        self.L0 = self.int_matrix.copy()
 
-        mic_wavfile = load_wav(curr_soundcheck_filename)
+        for j in range(self.J):
+            # for each instruments
+            print("processing source", j)
+            self.X = stft.stft(self.waveforms[:,j,:].T, self.nfft, self.hop)
+            self.F, self.T, self.I = self.X.shape
         
-        wav = mic_wavfile[1]
-        self.N, self.C = wav.shape
-        self.X = stft.stft(wav, self.nfft, self.hop)
-        self.F, self.T, self.I = self.X.shape
-        print(self.N, self.C, self.F, self.T, self.I, self.J)
+            print(self.N, self.F, self.T, self.I, self.J)
 
-        self.X = np.maximum(self.X, EPS)
-        self.V = np.abs(self.X)**2
-        self.V = np.maximum(self.V, EPS)
-        mean_energy = np.mean(np.mean(self.V,0),0)
-        mean_energy /= np.max(mean_energy)
-        self.L = np.ones((self.F, self.I, self.J))
-        # self.L[:,:,0] = mean_energy
-        self.L0 = np.ones((self.F, self.I, self.J))
+            if j == 0:
+                estim_L = np.zeros([self.F, self.I, self.J])
+            
+            self.X = np.maximum(self.X, EPS)
+            V = np.maximum(np.abs(self.X)**2, EPS)
+            
+            L = np.zeros((self.F, self.I, 1))
+            for f in range(self.F):
+                L[f,:,0] = self.L0[:,j]
+            
+            print("\nInitilization of P with soundcheck data...")
+            P = np.zeros((self.F, self.T, 1))
+            P[:,:,0] = np.mean(V, 2)
+            print(" done.")
 
-        print("\nInitilization of P with soundcheck data...\n")
-        self.P = np.zeros((self.F, self.T, self.J))
-        self.P[:,:,0] = np.mean(self.V, 2)
+            print(P.shape)
+            print(L.shape)
 
-        print("\nEstimation of L and P with soundcheck data...\n")
-        L = self.L.copy()
-        L0 = self.L.copy()
-        P = self.P.copy()
+            print("\nEstimation of L and P with soundcheck data...")
+            L, P, P1, cost = self.param_estimation["MM"](self, L, P, V, None)
+            print(" done.")
 
-        # print('L',L.shape)
-        # print('L0',L0.shape)
-        # print('P',P.shape)
+            estim_L[:,:,j] = L[:,:,0]
 
-        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
-  
-        return L
+        return estim_L
 
     def remove_interference_given_matrix(self, L):
         print('Remove interference from soundtrack')
@@ -571,8 +642,8 @@ class Mira(object):
     actions = {   1  : remove_interference_chunk,
                   2  : remove_interference_chunk_projecting,
                   3  : remove_interference_fulltrack,
-                  4  : estimate_interference_from_soundcheck,
-                  5  : remove_interference_given_matrix,
+                  "soundcheck"  : { "estim_interfernce"   : estimate_interference_from_soundcheck,
+                                    "remov_interfernce" : remove_interference_given_matrix,},
                   6  : remove_interference_given_matrix2}
 
 
@@ -802,7 +873,7 @@ class Mira(object):
         log.info("... done.")
         return
 
-    def marginal_modelling_param_estimation(self, L, P, L0 = None):
+    def marginal_modelling_param_estimation(self, L, P, V, L0 = None):
 
         P1   = None
         cost = np.zeros(self.n_iter)
@@ -810,47 +881,21 @@ class Mira(object):
         for it in range(self.n_iter):
 
             print("      estimation, itaration: %d/%d" % (it+1, self.n_iter))
-            log.info("  estimation, itaration: %d/%d" % (it+1, self.n_iter))
 
             if self.do_cost:
-                cost[it] = self.compute_beta_cost_MM(L, P, self.V)
+                cost[it] = self.compute_beta_cost_MM(L, P, V)
 
             if self.is_lambda_learning:
                 for itL in range(self.n_lambda_iter):
-                    # L = np.maximum(L,np.random.rand(self.F, self.I, self.J))
-                    L = self.MM_update_L(L, P, self.V, self.compute_Pi(L,P))
-            
+                    L = self.MM_update_L(L, P, V, self.compute_Pi(L,P))
+
             if self.is_PSD_learning:
-                if it == 0:
-                    log.debug('using L0')
-                    P = self.MM_update_PSD(L0, P, self.V, self.compute_Pi(L0, P))
-                else:
-                    log.debug("using L")
-                    P = self.MM_update_PSD(L, P, self.V, self.compute_Pi(L, P))
-
-            if self.do_kernel:
-                self.apply_kernel(P)
-
-
-
-            # import matplotlib.pyplot as plt
-
-            # plt.subplot(151)
-            # plt.imshow(np.log(np.abs(self.V[:,:,0])))
-            # plt.subplot(152)
-            # plt.imshow(np.log(np.abs(self.V[:,:,1])))
-            # plt.subplot(153)
-            # plt.imshow(np.log(np.abs(self.V[:,:,2])))
-            # plt.subplot(154)
-            # plt.imshow(np.log(np.abs(self.V[:,:,3])))
-            # plt.subplot(155)
-            # plt.imshow(np.log(np.abs(self.P[:,:,0])))
-            # plt.show()
+                    P = self.MM_update_PSD(L, P, V, self.compute_Pi(L, P))
 
             if it == 0:
                 P1 = P.copy()
 
-        if self.do_cost and not np.array_equal(cost, np.sort(cost)[::-1]):
+        if self.do_cost and not np.array_equal(cost[1:], np.sort(cost[1:])[::-1]):
             log.error("cost not decreasing")
             log.error("COST: " + np.array_str(cost))
 
@@ -952,7 +997,6 @@ class Mira(object):
 
     def compute_beta_cost_MM(self, L, P, V):
         cost = self.beta_div_cost(V, self.compute_Pi(L, P), self.beta).sum()
-        print(cost)
         if self.do_sparsity_constraint:
             return cost + self.sparsity_cost(P)
         else:

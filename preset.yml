@@ -31,7 +31,7 @@
   do_approx: false
   do_kernel: false
   do_smooth_init: true
-  do_sparsity_constraint: true
+  do_sparsity_constraint: false
   inner_iter: 1
   is_PSD_learning: true
   is_lambda_freq_dependant: true
