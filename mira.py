@@ -47,6 +47,7 @@ from tempfile              import mkdtemp
 
 from utils import wav, stft, IRantoine #utils for audio signal
 
+from norbert import temporal_smooth
 
 ################################################################################
 #           CONSTANTS                                                          #
@@ -111,8 +112,9 @@ class Mira(object):
                 filenames  = None,
                 waveforms  = None,
                 int_matrix = None, 
-                method             = "MM",
-                function_mode      = 0):
+                song       = None,
+                method        = "MM",
+                function_mode = 0):
 
         log.info("MIRA inizialization")
 
@@ -137,7 +139,7 @@ class Mira(object):
             self.do_rendering = True
 
             #debug info
-            self.do_cost  = True
+            self.do_cost  = False
 
             #L is given by the user
             self.is_lambda_given = False
@@ -180,6 +182,7 @@ class Mira(object):
             self.do_smooth_init           = settings["do_smooth_init"]
             self.smooth_n_iter            = int(settings["smooth_n_iter"])
             self.do_approx                = settings["do_approx"]
+            self.smooth_sec               = settings["smooth_sec"]
         else:
 
             self.filenames = filenames
@@ -534,66 +537,7 @@ class Mira(object):
 
         return estim_L
 
-    def remove_interference_given_matrix(self, L):
-        print('Remove interference from soundtrack')
-
-        from soundcheck import load_wav
-        import glob
-
-        print(self.input_folder_path[:-1])
-        mic_wavfile = load_wav(self.input_folder_path[:-1])
-        
-        wav = mic_wavfile[1]
-        fs  = mic_wavfile[4]
-        self.N, self.C = wav.shape
-        self.X = stft.stft(wav, self.nfft, self.hop)
-        self.F, self.T, self.J = self.X.shape
-        self.F, self.I, self.J = L.shape
-        print(self.N, self.C, self.F, self.T, self.I, self.J)
-
-        self.V = np.maximum(np.abs(self.X)**2, EPS)
-        self.L = L.copy()
-        self.L0 = L.copy()
-        self.P = np.zeros((self.F, self.T, self.J))
-        for j in range(self.J):
-            self.P[:,:,j] = np.sum((self.V / self.L[:,None,:,j]), axis = 2)/self.I
-
-        # self.save_and_clear(self.X, self.gains)
-        print("     Initilization...")
-        L = self.L.copy()
-        L0 = self.L0.copy()
-        P = self.P.copy()
-
-        print("     Parameters estimations...")
-        L, P, P1, cost  = self.param_estimation[self.method](self, L, P, L0)
-
-        # self.load_X_gains()
-
-        print("Separation and rendering...")
-        model = self.compute_Pi(L, P)
-
-        for j in range(self.J):
-            
-            Y = np.zeros((self.F, self.T, self.I)).astype(np.complex64)
-            for k in range(self.I):
-                #compute the wiener gain to separate image of j in this channel
-                W = (P[:,:,j] * L[:, None, k, j]) / model[:,:,k]
-
-                #apply the Wiener gains as in (7)
-                Y[:,:,k] = W * self.X[:,:,k]
-
-        wav =  stft.istft(                                     \
-                    Y.astype('complex'),
-                    1,
-                    self.hop,
-                    real  = True).astype(np.float32)
-
-        for j in range(self.J):
-            sf.write('./instrument_' + str(j) + '.wav', wav[:,j], fs)
-
-        return L
-
-    def remove_interference_given_matrix2(self, Lnew):
+    def remove_interference_given_matrix(self, x, L):
 
         print("\n\n\n"                                                                             + \
               "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" + \
@@ -602,49 +546,66 @@ class Mira(object):
               "~~~~                                  FROM                                  ~~~~\n" + \
               "~~~~                               SOUNDCHECK                               ~~~~\n" + \
               "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
+        
+
+        print(L.shape)
+
+
+        F, I, J = L.shape
+        N, C    = x.shape
+
+        L0 = np.mean(L, axis = 0)
+        Linit = np.zeros([I,J])
+
+        def close_mics(L0, j):
+            indices = np.argmax(L0, axis = 1)
+            c, = np.where(indices == j)
+            return c
+
+        if C != I:
+            raise ValueError("Number of channels differs the number of microphones used for estimation")
 
         print("Reading input...\n")
-        self.import_wave_and_sources_names_from_csv()
-        self.dataset_info()
+        
+        X = stft.stft(x, self.nfft, self.hop)
 
-        self.L0, L = self.load_L0_and_L()
+        F, T, I = X.shape
 
-        self.build_stft_matrix_and_spectragram()
-        print('Dataset:')
-        print(self.dataset_tab)
+        V = np.maximum(np.abs(X)**2,EPS)
+        
+        P = np.zeros([F, T, J])
+        
+        for j in range(J):
+            c = close_mics(L0,j)
+            Linit[c,j] = 1
+            P[:,:,j] = np.sum((V[:,:,c] / L[:,None,c,j]), axis = 2)/len(c)
 
-        print('\nConsidered audio: 1 chunk of %s starting at %s'
-                %(datetime.timedelta(seconds = self.usr_len_sec),
-                  datetime.timedelta(seconds = self.usr_strt_sec)))
+        L, P, P1, cost = self.param_estimation[self.method](self, L, P,  V, L0 = Linit)
 
-        self.input_normalization()
+        # temporal smooth
+        for kernel_length_sec in [0, 0.12, 0.23, 1.16]:
+            print("processing for kernel:", kernel_length_sec)
+            V = P.transpose(1,0,2)
+            smooth_kernel_frames = int(kernel_length_sec*self.fs/self.nfft/self.overlap)
 
-        print("\nMatrix dimensions:")
-        self.dims_tab.append_row(["Input Mix" , self.F, self.T, self.I,   0   ])
-        self.dims_tab.append_row(["Interfence Matrix" , self.F,   0   , self.I, self.J])
-        self.dims_tab.append_row(["Voices PSDs", self.F, self.T,    0  , self.J])
-        print(self.dims_tab)
-        self.is_lambda_learning = False
+            print("smooth_k: ", smooth_kernel_frames)
 
-        self.save_and_clear(self.X, self.gains)
+            Ps = temporal_smooth(P[:,:,None,:], smooth_kernel_frames).squeeze()
 
-        print("\nInitilization...\n")
-        L, P, L0 = self.initialize_L_and_PSD(Lnew)
+            print("Separation and rendering...")
+            self.soundsources = []
+            for j in range(J):
+                self.soundsources.append("src" + str(j) + "_k-" + str(kernel_length_sec))
+            self.separation_and_rendering(X, L, Ps, no_gains = True, L0 = Linit)
 
-        print("Parameters estimations...")
-        L, P, P1, cost = self.param_estimation[self.method](self, L, P, L0)
-
-        self.load_X_gains()
-
-        print("Separation and rendering...")
-        return self.separation_and_rendering(L, P)
+        return
 
     actions = {   1  : remove_interference_chunk,
                   2  : remove_interference_chunk_projecting,
                   3  : remove_interference_fulltrack,
-                  "soundcheck"  : { "estim_interfernce"   : estimate_interference_from_soundcheck,
+                  "soundcheck"  : { "estim_interfernce" : estimate_interference_from_soundcheck,
                                     "remov_interfernce" : remove_interference_given_matrix,},
-                  6  : remove_interference_given_matrix2}
+                  6  : remove_interference_given_matrix}
 
 
 ################################################################################
@@ -946,29 +907,34 @@ class Mira(object):
                 P = IRantoine.interferenceRemoval(P,[10,10],0.5,5)
         return P
 
-    def separation_and_rendering(self, L, P, offest = 0, do_olap = False):
+    def separation_and_rendering(self, X, L, P, offest = 0, do_olap = False, no_gains = False, L0 = None):
+
+        F, I, J = L.shape
 
         model = self.compute_Pi(L, P)
 
-        for j in range(self.J):
+        for j in range(J):
             #for each sources
-            log.info("KAMIR sepatation, source: %d/%d" % (j+1, self.J))
+            print("KAMIR sepatation, source: %d/%d" % (j+1, J))
 
             #Y is the image of the source in its channels of importance
-            (Y, close_mics) = self.separate_and_update_stft_of_source(j, L, P, model)
+            (Y, close_mics) = self.separate_and_update_stft_of_source(X, j, L, P, model, L0)
 
             if self.do_rendering:
-                self.render_source(j, Y, close_mics, offest, do_olap)
+                self.render_source(j, Y, close_mics, offest, do_olap, no_gains)
         return
 
-    def separate_and_update_stft_of_source(self, j, L, P, model):
+    def separate_and_update_stft_of_source(self, X, j, L, P, model, L0):
+
+        F, T, I = X.shape
+
         #Y is the image of the source in its channels of importance
         #get the channels linked to the sources
-        close_mics, = np.nonzero(self.L0[:,j] == 1)
+        close_mics, = np.nonzero(L0[:,j] == 1)
 
         n_mics = len(close_mics)
         #get the image of this source in these channels
-        Y = np.zeros((self.F, self.T, n_mics)).astype(np.complex64)
+        Y = np.zeros((F, T, n_mics)).astype(np.complex64)
 
         counter = 0
         for k in close_mics:
@@ -982,7 +948,7 @@ class Mira(object):
                 W = 1 - 1/(1 + np.exp(self.slope * (W - self.thresh)))
 
             #apply the Wiener gains as in (7)
-            Y[:,:,counter] = W * self.X[:,:,k]
+            Y[:,:,counter] = W * X[:,:,k]
             counter += 1
 
         return Y, close_mics
@@ -1068,16 +1034,16 @@ class Mira(object):
 #           SUPPORT UTILS                                                      #
 ################################################################################
 
-    def render_source(self, j, Y, close_mics, offest, do_olap):
-        log.debug(" > rendering")
+    def render_source(self, j, Y, close_mics, offest, do_olap, no_gains):
+        print(" > rendering")
 
         separated_track = np.zeros((int(self.chunk_len_sec * self.fs), len(close_mics)))
         n = 0
         for k in close_mics:
-            print(self.gains.shape)
-            print(Y.shape)
-            print(k)
-            sig_in_freq = self.gains[:,k,None] * Y[:,:,n]
+            if not no_gains:
+                sig_in_freq = self.gains[:,k,None] * Y[:,:,n]
+            else:
+                sig_in_freq = Y[:,:,n]
             try:
                 separated_track[:,n][:,None] =  stft.istft(                                     \
                                                     sig_in_freq[...,None].astype('complex'),
@@ -1095,6 +1061,7 @@ class Mira(object):
                 separated_track = np.zeros((len(tmp_sig), len(close_mics)))
                 separated_track[:,n][:,None] =  tmp_sig
             n += 1
+
         #write results
         source_filename = self.output_folder_path                               \
                             + self.soundsources[j]                              \

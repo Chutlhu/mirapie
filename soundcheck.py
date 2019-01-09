@@ -26,6 +26,7 @@ print("\n   [ MIRA | SOUNDCHECK ]\n\n")
 #           IMPORTS                                                            #
 ################################################################################
 
+import os
 import argparse     #for command line parser
 import sys
 import traceback    #for exception handling
@@ -50,8 +51,9 @@ def get_instructions(args):
 def run_soundcheck(args):
     params = get_instructions(args)
 
+
     # get soundcheck data
-    names, datas, L, gains = soundcheck_preprocess(params)
+    names, datas, L, gains, mixture, fs, mix_name = soundcheck_preprocess(params)
 
     # estimate INTEFERENCE MATRIX from soundcheck data
     mode     = "soundcheck"
@@ -61,14 +63,24 @@ def run_soundcheck(args):
               soundcheck = True,
               filenames  = names,
               waveforms  = datas,
-              int_matrix = L, 
+              int_matrix = L,
               function_mode = mode)
+    mr.output_folder_path = mr.output_folder_path  + args["output"] + "/"
+    if not os.path.exists(mr.output_folder_path):
+        os.makedirs(mr.output_folder_path)
+    
     L = mr.actions[mode][function](mr) # F x I x J
 
-    # remove interferences given 
-    function = "remov_interferences"
-    mr.actions[mode][function](mr)
+    # save L to file --- just in case
+    np.save("./tmp_estimated_int_matrix.npy", L)
 
+    # remove INTERFERENCE from the target multitrack mixture
+    function = "remov_interfernce"
+    mr.is_lambda_learning = False
+    mr.fs = fs
+    mr.actions[mode][function](mr, mixture, L)
+
+    # post processing
 
 def get_parser():
     #MANDATORY ARGS
@@ -77,12 +89,19 @@ def get_parser():
                     help    = 'path to the folder containing the multichannel audio files [.wav].',
                     type    = str,
                     metavar = 'soundcheck_dir')
+    parser.add_argument('song_path',
+                    help    = 'path to the multichannel audio file [.wav].',
+                    type    = str,
+                    metavar = 'song_path')
     parser.add_argument('-p', '--preset',   help    = 'select one of the possible preset (default: 1)',
                                             type    = int,
                                             default = 1)
     parser.add_argument('-m', '--mode',     help    = 'select one of the possible mode (default: 0)',
                                             type    = int,
                                             default = 1)
+    parser.add_argument('-o', '--output',   help    = 'output dir',
+                                            type    = str,
+                                            default = "song")
     return parser
 
 

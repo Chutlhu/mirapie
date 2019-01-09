@@ -35,7 +35,17 @@ def load_wav(path_to_audio_file):
 
 def soundcheck_preprocess(args):
 
-	## MULTICHANNEL SONG
+	## MULTICHANNEL SONG DATA
+	song_filename = args['song_path']
+	(mix_name, mix_data, mix_n_smpl, mix_n_chans, mix_fs) = load_wav(song_filename)
+
+	max_sec = 60
+	print(mix_data.shape)
+	mix_data = mix_data[0:max_sec*mix_fs,:]
+	print(mix_data.shape)
+
+
+	## MULTICHANNEL SOUNDCHECK DATAS
 	# list soundcheck files
 	soundcheck_filenames = glob.glob(args['soundcheck_dir'] + '*.wav')
 	soundcheck_filenames = sorted(soundcheck_filenames)
@@ -75,4 +85,4 @@ def soundcheck_preprocess(args):
 	# Lambda matrix initialization from the gains
 	L = gains/np.sum(gains,1)[...,None]
 
-	return names, datas, L, gains
+	return names, datas, L, gains, mix_data, mix_fs, mix_name
